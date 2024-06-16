@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+    "github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -13,17 +15,19 @@ type Model struct {
     canvas       Canvas
     colorcursor  int
     clicked      bool
+    keys         keyMap
+    help         help.Model
 }
 
 var (
-    OffsetY = 1
-    OffsetX = 2
+    OffsetY = 2
+    OffsetX = 4
 )
 
 // TODO Get terminal dimensions + handle resize
 const (
-    Width = 100
-    Height = 40
+    Width = 50 
+    Height = 30
 )
 
 var (
@@ -38,15 +42,13 @@ var (
 )
 
 func NewModel() Model {
+    h := help.New()
+    h.ShowAll = true
     return Model{
-        canvas: Canvas{
-            points: make(map[string] Point),
-            pic: "",
-            offsetx: OffsetX,
-            offsety: OffsetY,
-        },
+        canvas:      NewCanvas(OffsetX, OffsetY),
+        keys:        keys,
+        help:        h,
         colorcursor: 0,
-        clicked: false,
     }
 }
 
@@ -54,21 +56,26 @@ func (m Model) Init() tea.Cmd {
     return nil
 }
 
-
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     switch msg := msg.(type) {
     case tea.KeyMsg :
-        switch msg.String() {
-        case "ctrl+c":
+        switch {
+        case key.Matches(msg, m.keys.Quit):
             return m, tea.Quit
-        case "c":
-            if m.colorcursor < len(colors) {
+
+        case key.Matches(msg, m.keys.ColorDown):
+            if m.colorcursor < len(colors)-1 {
                 m.colorcursor++
+                m.canvas.SetColor(colors[m.colorcursor])
             }
-        case "C":
-            if m.colorcursor >= 0 {
+
+        case key.Matches(msg, m.keys.ColorUp):
+            if m.colorcursor > 0 {
                 m.colorcursor--
+                m.canvas.SetColor(colors[m.colorcursor])
             }
+        case key.Matches(msg, m.keys.Clear):
+            m.canvas.Clear()
         }
     case tea.MouseMsg:
         switch msg.Action {
@@ -88,8 +95,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) DrawPoint(x int, y int) {
-    m.canvas.AddPoint(x-OffsetX+1, y-OffsetY, colors[m.colorcursor])
-    m.canvas.Draw()
+    m.canvas.AddPoint(x, y)
 }
 
 func (m Model) View() string {
@@ -110,6 +116,7 @@ func (m Model) View() string {
                 SetString("Vango - Terminal Paint")
 
     highlight := lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
+
 	canvas := lipgloss.NewStyle().
 		Border(border, true).
 		BorderForeground(highlight).
@@ -120,12 +127,12 @@ func (m Model) View() string {
     info := lipgloss.NewStyle().
                 Width(Width).
                 Height(Height).
-                Align(lipgloss.Left).
                 MarginLeft(2)
 
     colorinfo := strings.Builder{}
     colorinfo.WriteString("Colors\n\n")
     colorstyle := lipgloss.NewStyle().Background(lipgloss.Color("0"))
+
     for i, c := range colors {
         cursor := " "
         if i == m.colorcursor {
@@ -135,11 +142,11 @@ func (m Model) View() string {
         colorinfo.WriteString(fmt.Sprintf("%s %s", colorstyle.Render(" "), cursor))
         colorinfo.WriteRune('\n')
     }
+    colorinfo.WriteString(m.help.View(m.keys))
 
-    layout := lipgloss.JoinHorizontal(lipgloss.Top, canvas.Render(m.canvas.pic), info.Render(colorinfo.String()))
+    layout := lipgloss.JoinHorizontal(lipgloss.Top, canvas.Render(m.canvas.String()), info.Render(colorinfo.String()))
     return title.Render() + "\n" + layout
 }
-
 
 func main() {
     f, err := tea.LogToFile("debug.log", "debug")
@@ -147,7 +154,6 @@ func main() {
         log.Fatal("Failed to create log file")
     }
     defer f.Close()
-
 
     p := tea.NewProgram(NewModel(), tea.WithAltScreen(), tea.WithMouseAllMotion())
     if _, err := p.Run(); err != nil {
