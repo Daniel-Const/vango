@@ -1,98 +1,87 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"strings"
-
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 )
 
-type Point struct {
-    X     int
-    Y     int
-    Color lipgloss.Color 
-}
-
-func (p Point) Key() string {
-    return fmt.Sprintf("%d:%d", p.X, p.Y)
-}
-
-func PointKey(x int, y int) string {
-    return fmt.Sprintf("%d:%d", x, y)
-}
+var (
+    colora = lipgloss.Color("#424242")
+    colorb = lipgloss.Color("#545353")
+)
 
 type Canvas struct {
-    cells    []string
+    cells    [][]lipgloss.Color
     offsetx  int
     offsety  int
-    cellstyle lipgloss.Style
+    color    lipgloss.Color
     table     *table.Table 
 }
 
 func NewCanvas(offsetx int, offsety int) Canvas {
     c := Canvas{}
-    c.cells = make([]string, Height*Width + Height)
+    c.cells = make([][]lipgloss.Color, Height)
     c.offsetx = offsetx
     c.offsety = offsety
-    c.cellstyle = lipgloss.NewStyle().SetString(" ")
     
-    // Init cells
-    for i := range c.cells {
-        if i % (Width+1) == 0 {
-            c.cells[i] = "\n"
-            continue
-        }
-        c.cells[i] = c.cellstyle.Render() 
-    }
-    c.cells[0] = c.cellstyle.Render()
-
     c.SetColor(colors[0])
+
+    cells := make([][]lipgloss.Color, Height)
+    grid := make([][]string, Height)
+    for i := 0; i < Height; i++ {
+        cells[i] = make([]lipgloss.Color, Width)
+        grid[i] = make([]string, Width)
+    }
+
+    for h := range cells{
+        for w := range cells[h] {
+            grid[h][w] = ""
+            c := w % 2
+            r := h % 2
+            if (c+r) % 2 == 0 {
+                cells[h][w] = colora
+            } else {
+                cells[h][w] = colorb
+            }
+        }
+    }
+
+    c.cells = cells
+	c.table = table.New().
+		BorderRow(false).
+		BorderColumn(false).
+		Rows(grid...).
+		StyleFunc(func(row, col int) lipgloss.Style {
+            return lipgloss.NewStyle().Padding(0, 1).Background(c.cells[row-1][col]).Width(1).Height(1)
+		})
+
     return c
 }
 
 func (c *Canvas) Clear() {
-    clearstyle := lipgloss.NewStyle().SetString(" ")
-    for i := range c.cells {
-        if c.cells[i] == "\n" {
-            continue
+    for h := range c.cells{
+        for w := range c.cells[h] {
+            col := w % 2
+            row := h % 2
+            if (col+row) % 2 == 0 {
+                c.cells[h][w] = colora
+            } else {
+                c.cells[h][w] = colorb
+            }
         }
-        c.cells[i] = clearstyle.Render()
     }
 }
 
-func (c *Canvas) AddPoint(x int, y int) {
-    if pos, valid := c.mapPos(x, y); valid {
-        c.cells[pos] = c.cellstyle.Render()
-    }
+func (c *Canvas) ColorCell(x int, y int) {
+    c.cells[y][x] = c.color
 }
 
-func (c *Canvas) mapPos(x int, y int) (int, bool) {
-    newx := x-c.offsetx
-    newy := y-c.offsety
-    if newx < 0 || newx > Width || newy < 0 || newy > Height {
-        return 0, false
-    }
 
-    point := newy*(Width+1)+newx
-    if point >= 0 && point < Height*Width+Height {
-        if c.cells[point] == "\n" {
-            log.Println("Ah newline here")
-            return 0, false
-        }
-
-        log.Printf("Adding (%d, %d) => (%d, %d)", x, y, newx, newy)
-        return point, true
-    }
-    
-    return 0, false
-}  
 func (c *Canvas) SetColor(color lipgloss.Color) {
-    c.cellstyle = c.cellstyle.Background(color)
+    c.color = color
 }
 
 func (c Canvas) String() string {
-    return strings.Join(c.cells, "")
+    return c.table.Render()
 }
 

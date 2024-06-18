@@ -20,14 +20,14 @@ type Model struct {
 }
 
 var (
-    OffsetY = 2
-    OffsetX = 4
+    OffsetY = 1
+    OffsetX = 0
 )
 
 // TODO Get terminal dimensions + handle resize
 const (
-    Width = 50 
-    Height = 30
+    Width = 16 
+    Height = 16
 )
 
 var (
@@ -88,47 +88,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             if m.clicked {
                 m.DrawPoint(msg.X, msg.Y)
             }
-
         }
     }
     return m, nil
 }
 
 func (m *Model) DrawPoint(x int, y int) {
-    m.canvas.AddPoint(x, y)
+    mapx := (x - 1) / 2
+    mapy := y - (1 + m.canvas.offsety)
+    if mapx < Width && mapy < Height {
+        log.Println(fmt.Sprintf("coloring: (%d, %d)", x, y))
+        m.canvas.ColorCell(mapx, mapy)
+    }
 }
 
 func (m Model) View() string {
-    border := lipgloss.Border{
-		Top:         "─",
-		Bottom:      "─",
-		Left:        "│",
-		Right:       "│",
-		TopLeft:     "╭",
-		TopRight:    "╮",
-		BottomLeft:  "┴",
-		BottomRight: "┴",
-	}
-
-    title := lipgloss.NewStyle().
+   title := lipgloss.NewStyle().
                 Foreground(lipgloss.Color("40")).
                 MarginLeft(OffsetX).
                 SetString("Vango - Terminal Paint")
 
-    highlight := lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
+    info := lipgloss.NewStyle().MarginLeft(4)
 
-	canvas := lipgloss.NewStyle().
-		Border(border, true).
-		BorderForeground(highlight).
-        Width(Width).
-        Height(Height).
-        MarginLeft(OffsetX)
-
-    info := lipgloss.NewStyle().
-                Width(Width).
-                Height(Height).
-                MarginLeft(2)
-
+	canvas := lipgloss.NewStyle()
     colorinfo := strings.Builder{}
     colorinfo.WriteString("Colors\n\n")
     colorstyle := lipgloss.NewStyle().Background(lipgloss.Color("0"))
@@ -142,7 +124,7 @@ func (m Model) View() string {
         colorinfo.WriteString(fmt.Sprintf("%s %s", colorstyle.Render(" "), cursor))
         colorinfo.WriteRune('\n')
     }
-    colorinfo.WriteString(m.help.View(m.keys))
+    colorinfo.WriteString("\n"+m.help.View(m.keys))
 
     layout := lipgloss.JoinHorizontal(lipgloss.Top, canvas.Render(m.canvas.String()), info.Render(colorinfo.String()))
     return title.Render() + "\n" + layout
