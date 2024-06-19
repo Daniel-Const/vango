@@ -8,9 +8,12 @@ import (
 )
 
 const (
-    NormalBrush = 0
-    BucketBrush = 1
+    NormalBrush = iota
+    BucketBrush
+    EraseBrush
 )
+
+type Color lipgloss.Color
 
 type Cell struct {
     color   lipgloss.Color
@@ -28,20 +31,17 @@ type Canvas struct {
 
 func NewCanvas(width int, height int) Canvas {
     c := Canvas{}
-    c.cells = make([][]Cell, height)
     c.Width = width
     c.Height = height
-
     cells := make([][]Cell, c.Height)
     grid := make([][]string, c.Height)
+    
     for i := 0; i < c.Height; i++ {
         cells[i] = make([]Cell, c.Width)
         grid[i] = make([]string, c.Width)
     }
 
     c.cells = cells
-    c.Clear()
-
 	c.table = table.New().
 		BorderRow(false).
 		BorderColumn(false).
@@ -54,38 +54,34 @@ func NewCanvas(width int, height int) Canvas {
                 Height(1)
 		})
 
+    c.Clear()
     c.brush = NormalBrush
     return c
 }
 
-func (c *Canvas) ClearCell(x int, y int) {
-    col := x % 2
-    row := y % 2
-    if (col+row) % 2 == 0 {
-        c.cells[y][x] = Cell{color: EmptyPalette[0], empty: true}
-    } else {
-        c.cells[y][x] = Cell{color: EmptyPalette[1], empty: true}
-    }
-}
-
+// Erase all cells on the canvas
 func (c *Canvas) Clear() {
     for y := range c.cells {
         for x := range c.cells[y] {
-            c.ClearCell(x, y)
+            c.colorErase(x, y)
         }
     }
 }
 
+// Color a cell according to the selected brush
 func (c *Canvas) ColorCell(x int, y int) {
     if c.isValidPos(x, y) {
-        if c.brush == NormalBrush {
+        switch c.brush {
+        case NormalBrush:
             c.colorNormal(x, y)
-        } else if c.brush == BucketBrush {
+        case BucketBrush:
             var color *lipgloss.Color
             if cell := c.cells[y][x]; !cell.empty {
                 color = &cell.color
             }
             c.colorBucket(x, y, color, map[string]bool{})
+        case EraseBrush:
+            c.colorErase(x, y)
         }
     }
 }
@@ -123,6 +119,18 @@ func (c *Canvas) colorBucket(x int, y int, color *lipgloss.Color, visited map[st
     c.colorBucket(x, y-1, color, visited)
     c.colorBucket(x+1, y, color, visited)
     c.colorBucket(x, y+1, color, visited)
+}
+
+func (c *Canvas) colorErase(x int, y int) {
+    col := x % 2
+    row := y % 2
+    if (col+row) % 2 == 0 {
+        c.cells[y][x].color = EmptyPalette[0]
+        c.cells[y][x].empty = true
+    } else {
+        c.cells[y][x].color = EmptyPalette[1]
+        c.cells[y][x].empty = true
+    }
 }
 
 func (c *Canvas) SetColor(color lipgloss.Color) {

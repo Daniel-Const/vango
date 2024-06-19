@@ -40,7 +40,7 @@ func NewModel(width int, height int) Model {
         help:        h,
         palette:     p,
         colorcursor: Cursor{Pos: 0, Min: 0, Max: len(p)-1},
-        brushcursor: Cursor{Pos: 0, Min: 0, Max: 1},
+        brushcursor: Cursor{Pos: 0, Min: 0, Max: 2},
     }
 }
 
@@ -66,7 +66,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         case key.Matches(msg, m.keys.BrushUp):
             m.brushcursor.Prev()
             m.canvas.SetBrush(m.brushcursor.Pos)
-
         case key.Matches(msg, m.keys.Clear):
             m.canvas.Clear()
         }
@@ -74,14 +73,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     case tea.MouseMsg:
         switch msg.Action {
         case tea.MouseActionPress:
-            m.Draw(msg.X, msg.Y)
+            m.Paint(msg.X, msg.Y)
             m.mousedown = true
-
         case tea.MouseActionMotion:
-            if m.mousedown {
-                m.Draw(msg.X, msg.Y)
-            }
-
+            if m.mousedown { m.Paint(msg.X, msg.Y) }
         case tea.MouseActionRelease:
             m.mousedown = false
         }
@@ -89,54 +84,49 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     return m, nil
 }
 
-
-
 func (m Model) View() string {
-   title := lipgloss.NewStyle().
+    helpstyle := lipgloss.NewStyle().MarginLeft(2)
+    subtitle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true)
+    menustyle := lipgloss.NewStyle().MarginLeft(4)
+    title := lipgloss.NewStyle().
                 Foreground(lipgloss.Color("40")).
-                MarginLeft(OffsetX).
+                MarginLeft(2).
                 SetString("Vango - Terminal Paint")
 
-    info := lipgloss.NewStyle().MarginLeft(4)
-    colorinfo := strings.Builder{}
-    subtitle := lipgloss.NewStyle().
-                    BorderStyle(lipgloss.NormalBorder()).
-                    BorderBottom(true)
-
-    colorinfo.WriteString(subtitle.Render("Colors"))
-    colorinfo.WriteString("\n")
-    colorstyle := lipgloss.NewStyle().Background(lipgloss.Color("0"))
-
-    for i, c := range m.palette {
-        cursor := " "
-        if i == m.colorcursor.Pos {
-            cursor = "<"
+    var colormenu strings.Builder
+    {
+        var cursor string
+        style := lipgloss.NewStyle().Background(lipgloss.Color("0"))
+        colormenu.WriteString(subtitle.Render("Colors"))
+        colormenu.WriteRune('\n')
+        for i, c := range m.palette {
+            cursor = " "
+            if i == m.colorcursor.Pos { cursor = ">" }
+            style = style.Background(c)
+            colormenu.WriteString(fmt.Sprintf("%s %s", cursor, style.Render(" ")))
+            colormenu.WriteRune('\n')
         }
-        colorstyle = colorstyle.Background(c)
-        colorinfo.WriteString(fmt.Sprintf("%s %s", colorstyle.Render(" "), cursor))
-        colorinfo.WriteRune('\n')
     }
-
-    brushinfo := strings.Builder{}
-    brushinfo.WriteString(subtitle.Render("Brushes"))
-    brushinfo.WriteRune('\n')
-    for i, c := range []string{"normal", "bucket"} {
-        cursor := " "
-        if i == m.brushcursor.Pos {
-            cursor = "<"
-        }
-        brushinfo.WriteString(fmt.Sprintf("%s %s", c, cursor))
-        brushinfo.WriteRune('\n')
-    }
-
-    helpstyle := lipgloss.NewStyle().MarginLeft(2)
     
-    infolayout := lipgloss.JoinVertical(lipgloss.Top, colorinfo.String(), brushinfo.String())
-    layout := lipgloss.JoinHorizontal(lipgloss.Top, lipgloss.NewStyle().Render(m.canvas.String()), info.Render(infolayout))
-    return title.Render() + "\n" + layout + "\n" + helpstyle.Render(m.help.View(m.keys))
+    var brushmenu strings.Builder
+    {
+        var cursor string
+        brushmenu.WriteString(subtitle.Render("Brushes"))
+        brushmenu.WriteRune('\n')
+        for i, c := range []string{"Normal", "Bucket", "Eraser"} {
+            cursor = " "
+            if i == m.brushcursor.Pos { cursor = ">" }
+            brushmenu.WriteString(fmt.Sprintf("%s %s", cursor, c))
+            brushmenu.WriteRune('\n')
+        }
+    }
+
+    menulayout := lipgloss.JoinVertical(lipgloss.Top, colormenu.String(), brushmenu.String())
+    layout := lipgloss.JoinHorizontal(lipgloss.Top, m.canvas.String(), menustyle.Render(menulayout))
+    return lipgloss.JoinVertical(lipgloss.Top, title.Render(), layout, helpstyle.Render(m.help.View(m.keys)))
 }
 
-func (m *Model) Draw(x int, y int) {
+func (m *Model) Paint(x int, y int) {
     mapx := (x - OffsetX) / 2
     mapy := y - OffsetY
     m.canvas.ColorCell(mapx, mapy)
