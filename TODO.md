@@ -4,6 +4,7 @@
 - Add more color palettes
 - Refactor brushes / brushcursor code 
 - Refactor main View (Use {} scope to help with var names)
+- Add prompt before wiping canvas (if canvas not empty)
 
 ## Ideas
 
