@@ -1,12 +1,12 @@
 # TODO
 
-- Handle terminal sizes properly
 - Create a nicer color picker
-- Brushes! :D
+- Add more color palettes
+- Refactor brushes / brushcursor code 
+- Refactor main View (Use {} scope to help with var names)
 
 ## Ideas
 
 - Better styling: Make canvas look more like a canvas
-- Save images
-- Brushes: Change size of stroke
-- Better rendering ideas?
+- Save painting to file
+- Brushes: Change size of stroke?

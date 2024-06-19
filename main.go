@@ -9,44 +9,38 @@ import (
     "github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/lipgloss"
+    "golang.org/x/term"
+)
+
+var (
+    palettes = []Palette{SimplePalette}
+    OffsetY = 2
+    OffsetX = 1
 )
 
 type Model struct {
     canvas       Canvas
-    colorcursor  int
-    mousedown      bool
+    colorcursor  Cursor 
+    brushcursor  Cursor 
+    mousedown    bool
     palette      Palette
     keys         keyMap
     help         help.Model
 }
 
-var (
-    OffsetY = 2
-    OffsetX = 1
-)
-
-// TODO Get terminal dimensions + handle resize
-const (
-    Width = 24 
-    Height = 16
-)
-
-var (
-    palettes = []Palette{SimplePalette}
-)
-
-func NewModel() Model {
+func NewModel(width int, height int) Model {
     h := help.New()
     h.ShowAll = true
     p := SimplePalette
-    c := NewCanvas(Width, Height)
+    c := NewCanvas(width, height)
     c.SetColor(p[0])
     return Model{
         canvas:      c,
         keys:        keys,
         help:        h,
-        colorcursor: 0,
         palette:     p,
+        colorcursor: Cursor{Pos: 0, Min: 0, Max: len(p)-1},
+        brushcursor: Cursor{Pos: 0, Min: 0, Max: 1},
     }
 }
 
@@ -60,24 +54,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         switch {
         case key.Matches(msg, m.keys.Quit):
             return m, tea.Quit
-
         case key.Matches(msg, m.keys.ColorDown):
-            if m.colorcursor < len(m.palette)-1 {
-                m.colorcursor++
-                m.canvas.SetColor(m.palette[m.colorcursor])
-            } else {
-                m.colorcursor = 0
-                m.canvas.SetColor(m.palette[m.colorcursor])
-            }
-
+            m.colorcursor.Next()
+            m.canvas.SetColor(m.palette[m.colorcursor.Pos])
         case key.Matches(msg, m.keys.ColorUp):
-            if m.colorcursor > 0 {
-                m.colorcursor--
-                m.canvas.SetColor(m.palette[m.colorcursor])
-            } else {
-                m.colorcursor = len(m.palette)-1
-                m.canvas.SetColor(m.palette[m.colorcursor])
-            }
+            m.colorcursor.Prev()
+            m.canvas.SetColor(m.palette[m.colorcursor.Pos])
+        case key.Matches(msg, m.keys.BrushDown):
+            m.brushcursor.Next()
+            m.canvas.SetBrush(m.brushcursor.Pos)
+        case key.Matches(msg, m.keys.BrushUp):
+            m.brushcursor.Prev()
+            m.canvas.SetBrush(m.brushcursor.Pos)
 
         case key.Matches(msg, m.keys.Clear):
             m.canvas.Clear()
@@ -101,14 +89,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     return m, nil
 }
 
-func (m *Model) Draw(x int, y int) {
-    mapx := (x - OffsetX) / 2
-    mapy := y - OffsetY
-    if mapx >= 0 && mapy >= 0 && mapx < Width && mapy < Height {
-        log.Println(fmt.Sprintf("coloring: (%d, %d)", x, y))
-        m.canvas.ColorCell(mapx, mapy)
-    }
-}
+
 
 func (m Model) View() string {
    title := lipgloss.NewStyle().
@@ -117,25 +98,53 @@ func (m Model) View() string {
                 SetString("Vango - Terminal Paint")
 
     info := lipgloss.NewStyle().MarginLeft(4)
-
-	canvas := lipgloss.NewStyle()
     colorinfo := strings.Builder{}
-    colorinfo.WriteString("Colors\n\n")
+    subtitle := lipgloss.NewStyle().
+                    BorderStyle(lipgloss.NormalBorder()).
+                    BorderBottom(true)
+
+    colorinfo.WriteString(subtitle.Render("Colors"))
+    colorinfo.WriteString("\n")
     colorstyle := lipgloss.NewStyle().Background(lipgloss.Color("0"))
 
     for i, c := range m.palette {
         cursor := " "
-        if i == m.colorcursor {
+        if i == m.colorcursor.Pos {
             cursor = "<"
         }
         colorstyle = colorstyle.Background(c)
         colorinfo.WriteString(fmt.Sprintf("%s %s", colorstyle.Render(" "), cursor))
         colorinfo.WriteRune('\n')
     }
-    colorinfo.WriteString("\n"+m.help.View(m.keys))
 
-    layout := lipgloss.JoinHorizontal(lipgloss.Top, canvas.Render(m.canvas.String()), info.Render(colorinfo.String()))
-    return title.Render() + "\n" + layout
+    brushinfo := strings.Builder{}
+    brushinfo.WriteString(subtitle.Render("Brushes"))
+    brushinfo.WriteRune('\n')
+    for i, c := range []string{"normal", "bucket"} {
+        cursor := " "
+        if i == m.brushcursor.Pos {
+            cursor = "<"
+        }
+        brushinfo.WriteString(fmt.Sprintf("%s %s", c, cursor))
+        brushinfo.WriteRune('\n')
+    }
+
+    helpstyle := lipgloss.NewStyle().MarginLeft(2)
+    
+    infolayout := lipgloss.JoinVertical(lipgloss.Top, colorinfo.String(), brushinfo.String())
+    layout := lipgloss.JoinHorizontal(lipgloss.Top, lipgloss.NewStyle().Render(m.canvas.String()), info.Render(infolayout))
+    return title.Render() + "\n" + layout + "\n" + helpstyle.Render(m.help.View(m.keys))
+}
+
+func (m *Model) Draw(x int, y int) {
+    mapx := (x - OffsetX) / 2
+    mapy := y - OffsetY
+    m.canvas.ColorCell(mapx, mapy)
+}
+
+func (m Model) Resize(width int, height int) {
+    m.canvas.Width = width
+    m.canvas.Height = height
 }
 
 func main() {
@@ -144,8 +153,18 @@ func main() {
         log.Fatal("Failed to create log file")
     }
     defer f.Close()
+    
+    // Terminal dimensions
+    width, height, err := term.GetSize(0)
+    if err != nil {
+        log.Println("Error: Failed to get terminal dimensions")
+        // Defaults
+        width = 16
+        height = 16
+    }
 
-    p := tea.NewProgram(NewModel(), tea.WithAltScreen(), tea.WithMouseAllMotion())
+    m := NewModel(width / 4, height / 2)
+    p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseAllMotion())
     if _, err := p.Run(); err != nil {
         log.Fatal("Oops! Failed to start")
     }
