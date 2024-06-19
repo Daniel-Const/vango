@@ -14,41 +14,39 @@ import (
 type Model struct {
     canvas       Canvas
     colorcursor  int
-    clicked      bool
+    mousedown      bool
+    palette      Palette
     keys         keyMap
     help         help.Model
 }
 
 var (
-    OffsetY = 1
-    OffsetX = 0
+    OffsetY = 2
+    OffsetX = 1
 )
 
 // TODO Get terminal dimensions + handle resize
 const (
-    Width = 16 
+    Width = 24 
     Height = 16
 )
 
 var (
-   colors = [6]lipgloss.Color{
-        lipgloss.Color(lipgloss.Color("100")),
-        lipgloss.Color(lipgloss.Color("120")),
-        lipgloss.Color(lipgloss.Color("140")),
-        lipgloss.Color(lipgloss.Color("160")),
-        lipgloss.Color(lipgloss.Color("180")),
-        lipgloss.Color(lipgloss.Color("190")),
-    }
+    palettes = []Palette{SimplePalette}
 )
 
 func NewModel() Model {
     h := help.New()
     h.ShowAll = true
+    p := SimplePalette
+    c := NewCanvas(Width, Height)
+    c.SetColor(p[0])
     return Model{
-        canvas:      NewCanvas(OffsetX, OffsetY),
+        canvas:      c,
         keys:        keys,
         help:        h,
         colorcursor: 0,
+        palette:     p,
     }
 }
 
@@ -64,39 +62,49 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             return m, tea.Quit
 
         case key.Matches(msg, m.keys.ColorDown):
-            if m.colorcursor < len(colors)-1 {
+            if m.colorcursor < len(m.palette)-1 {
                 m.colorcursor++
-                m.canvas.SetColor(colors[m.colorcursor])
+                m.canvas.SetColor(m.palette[m.colorcursor])
+            } else {
+                m.colorcursor = 0
+                m.canvas.SetColor(m.palette[m.colorcursor])
             }
 
         case key.Matches(msg, m.keys.ColorUp):
             if m.colorcursor > 0 {
                 m.colorcursor--
-                m.canvas.SetColor(colors[m.colorcursor])
+                m.canvas.SetColor(m.palette[m.colorcursor])
+            } else {
+                m.colorcursor = len(m.palette)-1
+                m.canvas.SetColor(m.palette[m.colorcursor])
             }
+
         case key.Matches(msg, m.keys.Clear):
             m.canvas.Clear()
         }
+
     case tea.MouseMsg:
         switch msg.Action {
         case tea.MouseActionPress:
-            m.DrawPoint(msg.X, msg.Y)
-            m.clicked = true
-        case tea.MouseActionRelease:
-            m.clicked = false
+            m.Draw(msg.X, msg.Y)
+            m.mousedown = true
+
         case tea.MouseActionMotion:
-            if m.clicked {
-                m.DrawPoint(msg.X, msg.Y)
+            if m.mousedown {
+                m.Draw(msg.X, msg.Y)
             }
+
+        case tea.MouseActionRelease:
+            m.mousedown = false
         }
     }
     return m, nil
 }
 
-func (m *Model) DrawPoint(x int, y int) {
-    mapx := (x - 1) / 2
-    mapy := y - (1 + m.canvas.offsety)
-    if mapx < Width && mapy < Height {
+func (m *Model) Draw(x int, y int) {
+    mapx := (x - OffsetX) / 2
+    mapy := y - OffsetY
+    if mapx >= 0 && mapy >= 0 && mapx < Width && mapy < Height {
         log.Println(fmt.Sprintf("coloring: (%d, %d)", x, y))
         m.canvas.ColorCell(mapx, mapy)
     }
@@ -115,7 +123,7 @@ func (m Model) View() string {
     colorinfo.WriteString("Colors\n\n")
     colorstyle := lipgloss.NewStyle().Background(lipgloss.Color("0"))
 
-    for i, c := range colors {
+    for i, c := range m.palette {
         cursor := " "
         if i == m.colorcursor {
             cursor = "<"

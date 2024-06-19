@@ -12,41 +12,28 @@ var (
 
 type Canvas struct {
     cells    [][]lipgloss.Color
-    offsetx  int
-    offsety  int
     color    lipgloss.Color
-    table     *table.Table 
+    table     *table.Table
+    width     int
+    height    int
 }
 
-func NewCanvas(offsetx int, offsety int) Canvas {
+func NewCanvas(width int, height int) Canvas {
     c := Canvas{}
     c.cells = make([][]lipgloss.Color, Height)
-    c.offsetx = offsetx
-    c.offsety = offsety
-    
-    c.SetColor(colors[0])
+    c.width = width
+    c.height = height
 
-    cells := make([][]lipgloss.Color, Height)
-    grid := make([][]string, Height)
-    for i := 0; i < Height; i++ {
-        cells[i] = make([]lipgloss.Color, Width)
-        grid[i] = make([]string, Width)
-    }
-
-    for h := range cells{
-        for w := range cells[h] {
-            grid[h][w] = ""
-            c := w % 2
-            r := h % 2
-            if (c+r) % 2 == 0 {
-                cells[h][w] = colora
-            } else {
-                cells[h][w] = colorb
-            }
-        }
+    cells := make([][]lipgloss.Color, c.height)
+    grid := make([][]string, c.height)
+    for i := 0; i < c.height; i++ {
+        cells[i] = make([]lipgloss.Color, c.width)
+        grid[i] = make([]string, c.width)
     }
 
     c.cells = cells
+    c.Clear()
+
 	c.table = table.New().
 		BorderRow(false).
 		BorderColumn(false).
@@ -58,16 +45,20 @@ func NewCanvas(offsetx int, offsety int) Canvas {
     return c
 }
 
+func (c *Canvas) ClearCell(x int, y int) {
+    col := x % 2
+    row := y % 2
+    if (col+row) % 2 == 0 {
+        c.cells[y][x] = EmptyPalette[0] 
+    } else {
+        c.cells[y][x] = EmptyPalette[1] 
+    }
+}
+
 func (c *Canvas) Clear() {
-    for h := range c.cells{
-        for w := range c.cells[h] {
-            col := w % 2
-            row := h % 2
-            if (col+row) % 2 == 0 {
-                c.cells[h][w] = colora
-            } else {
-                c.cells[h][w] = colorb
-            }
+    for y := range c.cells {
+        for x := range c.cells[y] {
+            c.ClearCell(x, y)
         }
     }
 }
