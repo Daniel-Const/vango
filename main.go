@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
+	"image/png"
 	"log"
+	"os"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-    "github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-    "golang.org/x/term"
+	"golang.org/x/term"
 )
 
 var (
@@ -17,6 +19,23 @@ var (
     OffsetY = 2
     OffsetX = 1
 )
+
+
+type saveMsg struct{}
+func saveCmd(c Canvas, path string) tea.Cmd {
+    return func() tea.Msg {
+        img := c.Image()
+        f, err := os.Create(path)
+        if err != nil {
+            log.Fatal(err)
+        }
+
+        defer f.Close()
+        png.Encode(f, img)
+        return saveMsg{}
+    } 
+
+}
 
 type Model struct {
     canvas       Canvas
@@ -66,6 +85,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         case key.Matches(msg, m.keys.BrushUp):
             m.brushcursor.Prev()
             m.canvas.SetBrush(m.brushcursor.Pos)
+        case key.Matches(msg, m.keys.Save):
+            return m, saveCmd(m.canvas, "./test.png")
         case key.Matches(msg, m.keys.Clear):
             m.canvas.Clear()
         }
@@ -102,7 +123,7 @@ func (m Model) View() string {
         for i, c := range m.palette {
             cursor = " "
             if i == m.colorcursor.Pos { cursor = ">" }
-            style = style.Background(c)
+            style = style.Background(lipgloss.Color(c))
             colormenu.WriteString(fmt.Sprintf("%s %s", cursor, style.Render(" ")))
             colormenu.WriteRune('\n')
         }

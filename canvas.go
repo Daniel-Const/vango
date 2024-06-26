@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	"image"
+	"image/color"
+	"log"
+	"strconv"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
@@ -16,13 +20,19 @@ const (
 type Color lipgloss.Color
 
 type Cell struct {
-    color   lipgloss.Color
-    empty   bool
+    color    lipgloss.Color
+    empty    bool
+    rawcolor string
+}
+
+func (c *Cell) setColor(color string) {
+    c.color = lipgloss.Color(color)
+    c.rawcolor = color
 }
 
 type Canvas struct {
     cells    [][]Cell
-    color    lipgloss.Color
+    color    string 
     table     *table.Table
     brush     int
     Width     int
@@ -86,13 +96,15 @@ func (c *Canvas) ColorCell(x int, y int) {
     }
 }
 
+// Normal brush
 func (c *Canvas) colorNormal(x int, y int) {
-    c.cells[y][x].color = c.color
+    c.cells[y][x].setColor(c.color)
     c.cells[y][x].empty = false
-
 }
 
-// Floodfill paint
+// Bucket brush
+// floodfill based
+// fills on empty segments or same-coloured segments
 func (c *Canvas) colorBucket(x int, y int, color *lipgloss.Color, visited map[string]bool) {
     if !c.isValidPos(x, y) {
         return
@@ -125,15 +137,15 @@ func (c *Canvas) colorErase(x int, y int) {
     col := x % 2
     row := y % 2
     if (col+row) % 2 == 0 {
-        c.cells[y][x].color = EmptyPalette[0]
+        c.cells[y][x].setColor(EmptyPalette[0])
         c.cells[y][x].empty = true
     } else {
-        c.cells[y][x].color = EmptyPalette[1]
+        c.cells[y][x].setColor(EmptyPalette[1])
         c.cells[y][x].empty = true
     }
 }
 
-func (c *Canvas) SetColor(color lipgloss.Color) {
+func (c *Canvas) SetColor(color string) {
     c.color = color
 }
 
@@ -149,3 +161,49 @@ func (c Canvas) String() string {
     return c.table.Render()
 }
 
+func (c Canvas) Image() image.Image {
+    start := image.Point{0, 0}
+    end := image.Point{c.Width, c.Height}
+    img := image.NewRGBA(image.Rectangle{start, end})
+
+    for y := range c.Height {
+        for x := range c.Width {
+            if !c.cells[y][x].empty {
+                img.Set(x, y, hexToRGBA(c.cells[y][x].rawcolor))
+            }
+        }
+    }
+
+    return img
+}
+
+func hexToRGBA(hex string) color.Color {
+    if hex[0] != '#' && len(hex) != 7 {
+        log.Fatalf("Failed to convert color %s to RGBA (Invalid format)", hex)
+    }
+
+    val, err := strconv.ParseUint(hex[1:], 16, 32)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // #RRGGBB
+    // RRRR  RRRR  GGGG  GGGG  BBBB  BBBB
+    
+    // Red 
+    // 0000  0000  0000  0000  RRRR  RRRR (>>16)
+
+    // Green
+    // 0000  0000  RRRR  RRRR  GGGG  GGGG (>> 8)
+    // 0000  0000  0000  0000  GGGG  GGGG (& 0xFF)
+
+    // Blue (& 0xFF)
+    // 0000  0000  0000  0000  BBBB  BBBB (& 0xFF) 
+
+    return color.RGBA{
+        uint8(val >> 16),
+        uint8((val >> 8) & 0xFF),
+        uint8(val & 0xFF),
+        0xff,
+    }
+}

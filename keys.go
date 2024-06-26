@@ -8,6 +8,7 @@ type keyMap struct {
     BrushUp key.Binding
     BrushDown key.Binding
     Clear key.Binding
+    Save key.Binding
     Quit key.Binding
 }
 
@@ -29,6 +30,10 @@ var keys = keyMap {
     Clear: key.NewBinding(
         key.WithKeys("w"),
         key.WithHelp("w", "wipe canvas"),
+    ),
+    Save: key.NewBinding(
+        key.WithKeys("s"),
+        key.WithHelp("s", "Save to PNG"),
     ),
     Quit: key.NewBinding(
         key.WithKeys("ctrl+c", "q"),
