@@ -52,7 +52,6 @@ type Model struct {
 
 func NewModel(width int, height int) Model {
     help := help.New()
-    help.ShowAll = true
     palette := SimplePalette
     canvas := NewCanvas(width, height)
     canvas.SetColor(palette[0])
@@ -107,6 +106,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
         case key.Matches(msg, m.keys.Save):
             if !m.promptSave {
                 m.startSave()
+                return m, nil
             }
 
         case key.Matches(msg, m.keys.Enter):
@@ -147,52 +147,59 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
-    helpstyle := lipgloss.NewStyle().MarginLeft(2)
-    subtitle := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true)
+    subtitle := lipgloss.NewStyle().PaddingBottom(1)
     menustyle := lipgloss.NewStyle().MarginLeft(4)
     title := lipgloss.NewStyle().
                 Foreground(lipgloss.Color("40")).
                 MarginLeft(2).
                 SetString("Vango - Terminal Paint")
 
+    helpstyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
     var colormenu strings.Builder
     {
         var cursor string
         style := lipgloss.NewStyle().Background(lipgloss.Color("0"))
-        colormenu.WriteString(subtitle.Render("Colors"))
+        colormenu.WriteString(subtitle.Render("Colors " + helpstyle.Render("c↓/C↑")))
         colormenu.WriteRune('\n')
         for i, c := range m.palette {
             cursor = " "
-            if i == m.colorcursor.Pos { cursor = ">" }
+            if i == m.colorcursor.Pos { cursor = "→" }
             style = style.Background(lipgloss.Color(c))
             colormenu.WriteString(fmt.Sprintf("%s %s", cursor, style.Render(" ")))
             colormenu.WriteRune('\n')
         }
     }
-    
+
+    // Brush select
     var brushmenu strings.Builder
     {
         var cursor string
-        brushmenu.WriteString(subtitle.Render("Brushes"))
+        brushmenu.WriteString(subtitle.Render("Brushes " + helpstyle.Render("b↓/B↑")))
         brushmenu.WriteRune('\n')
         for i, c := range []string{"Normal", "Bucket", "Eraser"} {
             cursor = " "
-            if i == m.brushcursor.Pos { cursor = ">" }
+            if i == m.brushcursor.Pos { cursor = "→" }
             brushmenu.WriteString(fmt.Sprintf("%s %s", cursor, c))
             brushmenu.WriteRune('\n')
         }
     }
-
-    var savemenu strings.Builder
+    
+    savelayout := lipgloss.NewStyle().Border(lipgloss.NormalBorder())
+    savemenu := ""
+    var savetext strings.Builder
     if m.promptSave {
-        savemenu.WriteString(subtitle.Render("Save as PNG"))
-        savemenu.WriteRune('\n')
-        savemenu.WriteString(m.saveText.View())
-    } 
+        savetext.WriteString(subtitle.Render("Save as PNG"))
+        savetext.WriteRune('\n')
+        savetext.WriteString(m.saveText.View())
+        savemenu = savelayout.Render(savetext.String())
+    }
 
-    menulayout := lipgloss.JoinVertical(lipgloss.Top, colormenu.String(), brushmenu.String(), savemenu.String())
+
+    helplayout := lipgloss.NewStyle().MarginLeft(2)
+    menulayout := lipgloss.JoinVertical(lipgloss.Top, colormenu.String(), brushmenu.String(), savemenu)
     layout := lipgloss.JoinHorizontal(lipgloss.Top, m.canvas.String(), menustyle.Render(menulayout))
-    return lipgloss.JoinVertical(lipgloss.Top, title.Render(), layout, helpstyle.Render(m.help.View(m.keys)))
+    return lipgloss.JoinVertical(lipgloss.Top, title.Render(), layout, helplayout.Render(m.help.View(m.keys)))
 }
 
 func (m *Model) Paint(x int, y int) {

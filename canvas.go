@@ -25,10 +25,10 @@ func (c *Cell) setColor(color string) {
 type Canvas struct {
     cells    [][]Cell
     color    string 
-    table     *table.Table
-    brush     Brush 
-    Width     int
-    Height    int
+    table    *table.Table
+    brush    Brush
+    Width    int
+    Height   int
 }
 
 func NewCanvas(width int, height int) Canvas {
