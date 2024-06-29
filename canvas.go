@@ -10,10 +10,31 @@ import (
 	"github.com/charmbracelet/lipgloss/table"
 )
 
+type Action struct {
+    pos Pos
+    cell Cell
+}
+
+type ActionStack struct {
+    actions [][]Action
+}
+
+func (a *ActionStack) push(actions []Action) {
+    a.actions = append(a.actions, actions)
+}
+
+func (a *ActionStack) pop() []Action {
+    var list []Action
+    l := len(a.actions) - 1
+    a.actions, list = a.actions[:l], a.actions[l]
+    return list
+}
+
+
 type Pos struct { x int; y int }
 type Cell struct {
     color    lipgloss.Color
-    empty    bool
+    isEmpty    bool
     rawcolor string
 }
 
@@ -23,12 +44,13 @@ func (c *Cell) setColor(color string) {
 }
 
 type Canvas struct {
-    cells    [][]Cell
-    color    string 
-    table    *table.Table
-    brush    Brush
-    Width    int
-    Height   int
+    cells     [][]Cell
+    color     string 
+    table     *table.Table
+    actions   ActionStack
+    brush     Brush
+    Width     int
+    Height    int
 }
 
 func NewCanvas(width int, height int) Canvas {
@@ -58,6 +80,7 @@ func NewCanvas(width int, height int) Canvas {
 
     c.Clear()
     c.brush = Pen{}
+    c.actions = ActionStack{[][]Action{}}
     return c
 }
 
@@ -66,16 +89,16 @@ func (c *Canvas) Clear() {
     erase := Erase{}
     for y := range c.Height {
         for x := range c.Width {
-            erase.Paint(c, x, y)
-            c.cells[y][x].empty = true
+            erase.Paint(c, x, y, &c.actions)
+            c.cells[y][x].isEmpty = true
         }
     }
 }
 
 // Color a cell according to the selected brush
 func (c *Canvas) ColorCell(x int, y int) {
-    if c.isValidPos(x, y) {
-        c.brush.Paint(c, x, y)
+    if c.isValidPos(x, y) && c.color != c.cells[y][x].rawcolor {
+        c.brush.Paint(c, x, y, &c.actions)
     }
 }
 
@@ -95,6 +118,17 @@ func (c Canvas) String() string {
     return c.table.Render()
 }
 
+func (c *Canvas) Undo() {
+    if len(c.actions.actions) == 0 {
+        return
+    }
+
+    list := c.actions.pop()
+    for _, a := range list {
+        c.cells[a.pos.y][a.pos.x] = a.cell
+    }
+}
+
 func (c Canvas) Image() image.Image {
     start := image.Point{0, 0}
     end := image.Point{c.Width, c.Height}
@@ -102,7 +136,7 @@ func (c Canvas) Image() image.Image {
 
     for y := range c.Height {
         for x := range c.Width {
-            if !c.cells[y][x].empty {
+            if !c.cells[y][x].isEmpty {
                 img.Set(x, y, hexToRGBA(c.cells[y][x].rawcolor))
             }
         }
@@ -110,6 +144,7 @@ func (c Canvas) Image() image.Image {
 
     return img
 }
+
 
 func hexToRGBA(hex string) color.Color {
     if hex[0] != '#' && len(hex) != 7 {

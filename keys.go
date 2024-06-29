@@ -10,6 +10,7 @@ type keyMap struct {
     Clear key.Binding
     Enter key.Binding
     Escape key.Binding
+    Undo key.Binding
     Save key.Binding
     Quit key.Binding
 }
@@ -47,6 +48,10 @@ var keys = keyMap {
     Quit: key.NewBinding(
         key.WithKeys("ctrl+c", "q"),
         key.WithHelp("ctrl+c/q", "quit"),
+    ),
+    Undo: key.NewBinding(
+        key.WithKeys("u"),
+        key.WithHelp("u", "Undo"),
     ),
 }
 

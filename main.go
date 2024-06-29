@@ -108,6 +108,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                 m.startSave()
                 return m, nil
             }
+        
+        case key.Matches(msg, m.keys.Undo):
+            m.canvas.Undo()
 
         case key.Matches(msg, m.keys.Enter):
             if m.promptSave {
