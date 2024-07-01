@@ -11,6 +11,10 @@ type Brush interface {
 
 type Erase struct {}
 func (e Erase) Paint(c *Canvas, x int, y int, a *ActionStack) {
+    if c.cells[y][x].isEmpty {
+        return
+    }
+
     a.push([]Action{{Pos{x, y}, c.cells[y][x]}})
     col := x % 2
     row := y % 2
@@ -24,6 +28,10 @@ func (e Erase) Paint(c *Canvas, x int, y int, a *ActionStack) {
 
 type Pen struct {}
 func (p Pen) Paint(c *Canvas, x int, y int, a *ActionStack) {
+    if c.cells[y][x].rawcolor == c.color {
+        return
+    }
+
     a.push([]Action{{Pos{x, y}, c.cells[y][x]}})
     c.cells[y][x].setColor(c.color)
     c.cells[y][x].isEmpty = false

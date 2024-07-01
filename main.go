@@ -110,7 +110,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             }
         
         case key.Matches(msg, m.keys.Undo):
-            m.canvas.Undo()
+            if !m.promptSave {
+                m.canvas.Undo()
+            }
 
         case key.Matches(msg, m.keys.Enter):
             if m.promptSave {
@@ -245,8 +247,7 @@ func main() {
         height = 16
     }
 
-    // m := NewModel(width / 4, height / 2)
-    m := NewModel(width / 2 - 20, height - 20)
+    m := NewModel(width / 4, height / 2)
     p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseAllMotion())
     if _, err := p.Run(); err != nil {
         log.Fatal("Oops! Failed to start")

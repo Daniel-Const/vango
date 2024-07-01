@@ -80,7 +80,6 @@ func NewCanvas(width int, height int) Canvas {
 		})
 
     c.Clear()
-    c.Render()
     c.brush = Pen{}
     c.actions = ActionStack{[][]Action{}}
     return c
@@ -95,11 +94,12 @@ func (c *Canvas) Clear() {
             c.cells[y][x].isEmpty = true
         }
     }
+    c.Render()
 }
 
 // Color a cell according to the selected brush
 func (c *Canvas) ColorCell(x int, y int) {
-    if c.isValidPos(x, y) && c.color != c.cells[y][x].rawcolor {
+    if c.isValidPos(x, y) {
         c.brush.Paint(c, x, y, &c.actions)
         c.Render()
     }
@@ -130,6 +130,7 @@ func (c *Canvas) Undo() {
     for _, a := range list {
         c.cells[a.pos.y][a.pos.x] = a.cell
     }
+    c.Render()
 }
 
 func (c Canvas) Image() image.Image {

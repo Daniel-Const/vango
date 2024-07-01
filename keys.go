@@ -36,7 +36,7 @@ var keys = keyMap {
     ),
     Save: key.NewBinding(
         key.WithKeys("s"),
-        key.WithHelp("s", "Save to PNG"),
+        key.WithHelp("s", "Save as PNG"),
     ),
     Enter: key.NewBinding(
         key.WithKeys("enter"),
@@ -56,7 +56,7 @@ var keys = keyMap {
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Clear, k.Quit}
+	return []key.Binding{k.Clear, k.Save, k.Undo, k.Quit}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {

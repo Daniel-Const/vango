@@ -10,6 +10,7 @@ var (
 
     SimplePalette = Palette{
         "#000000",
+        "#FFFFFF",
         "#db0fb3",
         "#9912c9",
         "#1218c9",
