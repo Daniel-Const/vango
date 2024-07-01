@@ -51,6 +51,7 @@ type Canvas struct {
     brush     Brush
     Width     int
     Height    int
+    View      string
 }
 
 func NewCanvas(width int, height int) Canvas {
@@ -79,6 +80,7 @@ func NewCanvas(width int, height int) Canvas {
 		})
 
     c.Clear()
+    c.Render()
     c.brush = Pen{}
     c.actions = ActionStack{[][]Action{}}
     return c
@@ -99,6 +101,7 @@ func (c *Canvas) Clear() {
 func (c *Canvas) ColorCell(x int, y int) {
     if c.isValidPos(x, y) && c.color != c.cells[y][x].rawcolor {
         c.brush.Paint(c, x, y, &c.actions)
+        c.Render()
     }
 }
 
@@ -114,8 +117,8 @@ func (c Canvas) isValidPos(x int, y int) bool {
     return x >= 0 && y >= 0 && x < c.Width && y < c.Height
 }
 
-func (c Canvas) String() string {
-    return c.table.Render()
+func (c *Canvas) Render() {
+    c.View = c.table.Render()
 }
 
 func (c *Canvas) Undo() {

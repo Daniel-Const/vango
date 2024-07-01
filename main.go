@@ -132,7 +132,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             m.mousedown = true
 
         case tea.MouseActionMotion:
-            if m.mousedown { m.Paint(msg.X, msg.Y) }
+            if m.mousedown {
+                m.Paint(msg.X, msg.Y)
+            }
 
         case tea.MouseActionRelease:
             m.mousedown = false
@@ -149,16 +151,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
     return m, nil 
 }
 
-func (m Model) View() string {
-    subtitle := lipgloss.NewStyle().PaddingBottom(1)
-    menustyle := lipgloss.NewStyle().MarginLeft(4)
-    title := lipgloss.NewStyle().
+var (
+    subtitle = lipgloss.NewStyle().PaddingBottom(1)
+    menustyle = lipgloss.NewStyle().MarginLeft(4)
+    title = lipgloss.NewStyle().
                 Foreground(lipgloss.Color("40")).
                 MarginLeft(2).
                 SetString("Vango - Terminal Paint")
+    helpstyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+)
 
-    helpstyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-
+func (m Model) View() string {
     var colormenu strings.Builder
     {
         var cursor string
@@ -201,7 +204,7 @@ func (m Model) View() string {
 
     helplayout := lipgloss.NewStyle().MarginLeft(2)
     menulayout := lipgloss.JoinVertical(lipgloss.Top, colormenu.String(), brushmenu.String(), savemenu)
-    layout := lipgloss.JoinHorizontal(lipgloss.Top, m.canvas.String(), menustyle.Render(menulayout))
+    layout := lipgloss.JoinHorizontal(lipgloss.Top, m.canvas.View, menustyle.Render(menulayout))
     return lipgloss.JoinVertical(lipgloss.Top, title.Render(), layout, helplayout.Render(m.help.View(m.keys)))
 }
 
@@ -242,7 +245,8 @@ func main() {
         height = 16
     }
 
-    m := NewModel(width / 4, height / 2)
+    // m := NewModel(width / 4, height / 2)
+    m := NewModel(width / 2 - 20, height - 20)
     p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseAllMotion())
     if _, err := p.Run(); err != nil {
         log.Fatal("Oops! Failed to start")
